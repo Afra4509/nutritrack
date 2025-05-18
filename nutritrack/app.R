@@ -101,11 +101,11 @@ ui <- dashboardPage(
         hr(),
         div(class = "sidebar-header", "Data Anak"),
         textInput("name", "Nama Anak", placeholder = "Masukkan nama anak"),
-        textInput("age_text", "Usia (bulan)", placeholder = "Masukkan usia anak"),
+        textInput("age_input", "Usia (bulan)", placeholder = "Contoh: 12 atau usia anak 12"),
         awesomeRadio("sex", "Jenis Kelamin", 
                      choices = c("Laki-laki" = "Male", "Perempuan" = "Female"),
                      selected = "Male", status = "primary"),
-        textInput("height_text", "Tinggi Badan (cm)", placeholder = "Masukkan tinggi badan anak"),
+        textInput("height_input", "Tinggi Badan (cm)", placeholder = "Contoh: 60 atau tb anak 60"),
         actionBttn("calculate", "Analisis Status Gizi", 
                    style = "gradient", color = "primary", size = "md",
                    block = TRUE, icon = icon("magnifying-glass-chart"))
@@ -715,10 +715,29 @@ server <- function(input, output, session) {
     status_text = NULL
   )
   
+  # Parse numeric inputs
+  age <- reactive({
+    if (is.null(input$age_input) || input$age_input == "") return(NULL)
+    # Extract numeric value, supporting formats like "12" or "usia anak 12"
+    age_str <- input$age_input
+    age_num <- as.numeric(gsub("[^0-9.]", "", age_str))
+    return(age_num)
+  })
+  
+  height <- reactive({
+    if (is.null(input$height_input) || input$height_input == "") return(NULL)
+    # Extract numeric value, supporting formats like "60" or "tb anak 60"
+    height_str <- input$height_input
+    height_num <- as.numeric(gsub("[^0-9.]", "", height_str))
+    return(height_num)
+  })
+  
   # Calculate Z-Score and status when user clicks "Analisis" button
   observeEvent(input$calculate, {
+    req(age(), height())
+    
     # Get WHO standard for child's age and sex
-    age_idx <- which(abs(who_data$age_months - input$age) == min(abs(who_data$age_months - input$age)))
+    age_idx <- which(abs(who_data$age_months - age()) == min(abs(who_data$age_months - age())))
     sex_idx <- which(who_data$sex == input$sex)
     
     # Get closest age in WHO data
@@ -732,7 +751,7 @@ server <- function(input, output, session) {
       sd_height <- who_data$sd_tb[closest_age_idx]
       
       # Calculate Z-Score
-      z_score <- (input$height - median_height) / sd_height
+      z_score <- (height() - median_height) / sd_height
       results$zscore <- round(z_score, 2)
       
       # Determine status
@@ -763,17 +782,17 @@ server <- function(input, output, session) {
   
   # Results table
   output$results_table <- renderTable({
-    req(results$zscore)
+    req(results$zscore, age(), height())
     
-    closest_age_idx <- which(who_data$age_months == who_data$age_months[which.min(abs(who_data$age_months - input$age))] & 
+    closest_age_idx <- which(who_data$age_months == who_data$age_months[which.min(abs(who_data$age_months - age()))] & 
                                who_data$sex == input$sex)[1]
     
     data.frame(
       "Parameter" = c("Usia", "Jenis Kelamin", "Tinggi Badan", "Tinggi Badan Standar", "Z-Score", "Status"),
       "Nilai" = c(
-        paste(input$age, "bulan"),
+        paste(age(), "bulan"),
         ifelse(input$sex == "Male", "Laki-laki", "Perempuan"),
-        paste(input$height, "cm"),
+        paste(height(), "cm"),
         paste(who_data$median_tb[closest_age_idx], "cm"),
         as.character(results$zscore),
         results$status
@@ -858,7 +877,7 @@ server <- function(input, output, session) {
     # Add point for current child if data is available
     if(!is.null(results$zscore)) {
       plot_data <- plot_data %>%
-        add_trace(x = input$age, y = input$height, type = 'scatter', mode = 'markers',
+        add_trace(x = age(), y = height(), type = 'scatter', mode = 'markers',
                   marker = list(color = results$color, size = 12, symbol = 'circle'),
                   name = ifelse(input$name == "", "Anak", input$name))
     }
