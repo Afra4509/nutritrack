@@ -147,9 +147,6 @@ Kontribusi pada proyek ini sangat dihargai! Berikut cara Anda dapat berkontribus
 4. Push ke branch (`git push origin feature/AmazingFeature`)
 5. Buka Pull Request
 
-## Lisensi
-
-Didistribusikan di bawah Lisensi MIT. Lihat `LICENSE` untuk informasi lebih lanjut.
 
 ## Link Proyek
 
